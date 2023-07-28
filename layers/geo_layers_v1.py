@@ -1,21 +1,21 @@
 """Hyperbolic layers."""
-# import math
-#
-# import dgl.graph_index
-# import torch
-# import torch.nn as nn
-# import torch.nn.functional as F
+import math
+
+import dgl.graph_index
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.modules.module import Module
 
-# from layers.att_layers import DenseAtt,SpGraphAttentionLayer,GraphAttentionLayer
-# import torch.nn as nn
-# # from torchdiffeq import odeint_adjoint as odeint
+from layers.att_layers import DenseAtt,SpGraphAttentionLayer,GraphAttentionLayer
+import torch.nn as nn
+# from torchdiffeq import odeint_adjoint as odeint
 from torchdiffeq import odeint as odeint
-# import geotorch
-# from torch_geometric.utils import get_laplacian
-#
-# import sparselinear as sl
+import geotorch
+from torch_geometric.utils import get_laplacian
+from pytorch_block_sparse import BlockSparseLinear
+import sparselinear as sl
 # from layers.ode_map import Connection_g,ODEfunc, Connectionnew,Connection,Connection_gnew,Connection_ricci,Connection_riccilearn,Connectionxlearn,Connection_v5,Connection_v5new
 from layers.ode_map import *
 from layers.H_1 import Hamilton,Hamilton_learn
@@ -127,9 +127,9 @@ class HamGraphConvolution(nn.Module):
         self.agg = HamAgg(out_features, args.dropout, args.agg, args.n_nodes, args.odemap,args)
         self.device = args.device
 
-    def forward(self, x, adj):
+    def forward(self, x, edge_index, edge_weight):
 
-        h = self.agg.forward(x, adj)
+        h = self.agg.forward(x, edge_index,edge_weight)
         output = h
         return output
 
@@ -150,9 +150,9 @@ class HamAgg(Module):
         self.agg = agg
         self.args = args
         if self.agg == 'GAT':
-            self.att = GATConv(in_features, in_features, heads=args.n_heads, concat=False, dropout=args.dropout)
-            # self.aggregator = GATConv(in_features, in_features, heads=args.n_heads,concat=False, dropout=args.dropout)
-            #self.aggregator = HAM_GATConv(in_features, in_features, heads=args.n_heads, device=args.cuda,concat=True)
+
+            self.aggregator = GATConv(in_features, in_features, heads=args.n_heads,concat=False, dropout=args.dropout)
+            # self.aggregator = HAM_GATConv(in_features, in_features, heads=args.n_heads, device=args.cuda,concat=True)
         elif self.agg == 'GCN':
             # self.aggregator = GCNConv(in_features, in_features)
             self.aggregator = HAM_GCNConv(in_features, in_features)
@@ -244,7 +244,7 @@ class HamAgg(Module):
     # def reset_parameters(self):
     #     init.xavier_uniform_(self.v, gain=1)
 
-    def forward(self, x,adj):
+    def forward(self, x, edge_index, edge_weight):
         #
         xt = x
 
@@ -288,29 +288,21 @@ class HamAgg(Module):
 
 
 
-        # x_tangent = out_x
+        x_tangent = out_x
+
         if self.agg == 'GCN':
-            output = torch.spmm(adj, out_x)
+            # print("edge_index: ", edge_index.shape)
+            # print("edge_weight: ", edge_weight)
+            # print("x_tangent: ", x_tangent.shape)
+            # support_t = self.aggregator(x_tangent, edge_index).to(self.args.device)
+            support_t = torch_sparse.spmm(edge_index, edge_weight, x_tangent.shape[0], x_tangent.shape[0], x_tangent)
         elif self.agg == 'GAT':
-            output = self.att(out_x, from_scipy_sparse_matrix(torch_sparse_to_coo(adj))[0].to(self.args.cuda))
-        else:
-            raise NotImplementedError
-
-
-
-        # if self.agg == 'GCN':
-        #     # print("edge_index: ", edge_index.shape)
-        #     # print("edge_weight: ", edge_weight)
-        #     # print("x_tangent: ", x_tangent.shape)
-        #     # support_t = self.aggregator(x_tangent, edge_index).to(self.args.device)
-        #     support_t = torch_sparse.spmm(edge_index, edge_weight, x_tangent.shape[0], x_tangent.shape[0], x_tangent)
-        # elif self.agg == 'GAT':
-        #     attention = self.aggregator(x_tangent, edge_index).to(self.args.device)
-        #     support_t = torch.mean(torch.stack(
-        #         [torch_sparse.spmm(edge_index, attention[:, idx], x_tangent.shape[0], x_tangent.shape[0], x_tangent) for idx in
-        #          range(self.args.n_heads)], dim=0),
-        #         dim=0)
-        # output = support_t
+            attention = self.aggregator(x_tangent, edge_index).to(self.args.device)
+            support_t = torch.mean(torch.stack(
+                [torch_sparse.spmm(edge_index, attention[:, idx], x_tangent.shape[0], x_tangent.shape[0], x_tangent) for idx in
+                 range(self.args.n_heads)], dim=0),
+                dim=0)
+        output = support_t
         # output_p = out[..., int(self.in_features):]
         # print("output shape: ", output.shape)
         return output
