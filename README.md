@@ -30,7 +30,8 @@ python main_nc.py --odemap h1extend --dataset cora --num_layers 2 --hidden 64 --
 python main_nc.py --odemap h1extend --dataset citeseer --num_layers 2 --hidden 64 --lr 0.01 --decay 0.001 --dropout 0 --step_size 0.2 --act None
 python main_nc.py --odemap h1extend --dataset pubmed --num_layers 2 --hidden 128 --lr 0.01 --decay 0.001 --dropout 0 --step_size 1.0 --act relu
 python main_nc.py --odemap h1learn --dataset airport --num_layers 2 --hidden 128 --lr 0.001 --decay 0.0001 --dropout 0 --step_size 1.0 --act relu
-python main_nc.py --odemap h1extend --dataset disease_nc --num_layers 2 --hidden 128 --lr 0.01 --decay 0.0001 --dropout 0.1 --step_size 1.0 --act None --patience 500
+python main_nc.py --odemap h1extend --dataset disease_nc --num_layers 2 --hidden 128 --lr 0.01 --decay 0.0001 --dropout 0.1 --step_size 1.0 --act None --patience 600 --epoch 2000 --vt fc --odemethod euler --seed 1234
+
 Equation(21)	 
 python main_nc.py --odemap h2extend --dataset cora --num_layers 5  --lr 0.01 --decay 0.001 --dropout 0 --step_size 0.5 --act relu --hidden 128
 python main_nc.py --odemap h2extend --dataset citeseer --num_layers 3  --lr 0.001 --decay 0.01 --dropout 0 --step_size 1.0 --act None --hidden 128
